@@ -10,6 +10,7 @@ from flask_apscheduler import APScheduler
 from pytz import timezone
 import signal
 import sys
+import os
 
 # Setup basic logging
 logging.basicConfig(
@@ -25,21 +26,21 @@ logger = logging.getLogger(__name__)
 class Config:
     SCHEDULER_API_ENABLED = True
 
-# Configuration (should be moved to environment variables)
-MQTT_BROKER = "103.127.134.201"
-MQTT_TOPIC_SENSOR = "esp32/sensor_data"
-MQTT_TOPIC_CONTROL = "esp32/watering_control"
-MQTT_USERNAME = "kayvsan"
-MQTT_PASSWORD = "(Malang439)"
-DATABASE = "sensor_data.db"
-MQTT_PORT = 1883
-MQTT_KEEPALIVE = 60
+# Configuration menggunakan environment variables
+MQTT_BROKER = os.environ.get('MQTT_BROKER', '103.127.134.201')
+MQTT_TOPIC_SENSOR = os.environ.get('MQTT_TOPIC_SENSOR', 'esp32/sensor_data')
+MQTT_TOPIC_CONTROL = os.environ.get('MQTT_TOPIC_CONTROL', 'esp32/watering_control')
+MQTT_USERNAME = os.environ.get('MQTT_USERNAME', 'kayvsan')
+MQTT_PASSWORD = os.environ.get('MQTT_PASSWORD', '(Malang439)')
+DATABASE = os.environ.get('DATABASE', 'sensor_data.db')
+MQTT_PORT = int(os.environ.get('MQTT_PORT', 1883))
+MQTT_KEEPALIVE = int(os.environ.get('MQTT_KEEPALIVE', 60))
 
-# Initialize Flask and components
+# Initialize Flask dan components
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Import fuzzy logic after app creation to avoid circular imports
+# Import fuzzy logic setelah app creation untuk menghindari circular imports
 from fuzzy_logic import FuzzyWateringSystem
 fuzzy_system = FuzzyWateringSystem()
 
@@ -50,6 +51,9 @@ mqtt_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
 # Initialize scheduler
 scheduler = APScheduler()
 scheduler.init_app(app)
+
+# Global flag untuk shutdown
+shutdown_requested = False
 
 def get_db_connection():
     """Get a database connection with proper error handling."""
@@ -104,6 +108,8 @@ def on_message(client, userdata, msg):
                                 (timestamp, float(temp), float(hum), int(soil))
                             )
                         logger.info(f"Saved sensor data: {temp}°C, {hum}%, {soil}%")
+                    except sqlite3.Error as e:
+                        logger.error(f"Database error: {e}")
                     finally:
                         conn.close()
             else:
@@ -117,14 +123,15 @@ def mqtt_thread():
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
     
-    while True:
+    while not shutdown_requested:
         try:
             logger.info("Attempting to connect to MQTT broker...")
             mqtt_client.connect(MQTT_BROKER, MQTT_PORT, MQTT_KEEPALIVE)
             mqtt_client.loop_forever()
         except Exception as e:
-            logger.error(f"MQTT connection error: {e}. Retrying in 10 seconds...")
-            time.sleep(10)
+            if not shutdown_requested:
+                logger.error(f"MQTT connection error: {e}. Retrying in 10 seconds...")
+                time.sleep(10)
 
 def proses_data():
     """Process the latest sensor data and determine watering needs."""
@@ -139,6 +146,9 @@ def proses_data():
                 "SELECT temperature, humidity, soil_moisture FROM sensor_data ORDER BY timestamp DESC LIMIT 1"
             )
             row = cursor.fetchone()
+        except sqlite3.Error as e:
+            logger.error(f"Database query error: {e}")
+            return None, None, None, {"error": "Database error"}
         finally:
             conn.close()
         
@@ -150,8 +160,11 @@ def proses_data():
         result = fuzzy_system.calculate_watering(soil, hum, temp)
         
         if result.get('duration_ms', 0) > 0:
-            mqtt_client.publish(MQTT_TOPIC_CONTROL, f"ON,{result['duration_ms']}")
-            logger.info(f"Sent pump command: ON for {result['duration_ms']}ms")
+            try:
+                mqtt_client.publish(MQTT_TOPIC_CONTROL, f"ON,{result['duration_ms']}")
+                logger.info(f"Sent pump command: ON for {result['duration_ms']}ms")
+            except Exception as e:
+                logger.error(f"Failed to send MQTT command: {e}")
         
         return temp, hum, soil, result
     
@@ -161,20 +174,25 @@ def proses_data():
 
 def signal_handler(sig, frame):
     """Handle shutdown signals gracefully."""
+    global shutdown_requested
     logger.info("Received shutdown signal")
+    shutdown_requested = True
+    
     try:
         mqtt_client.disconnect()
-    except:
-        pass
+        logger.info("MQTT client disconnected")
+    except Exception as e:
+        logger.error(f"Error disconnecting MQTT: {e}")
+    
     try:
         scheduler.shutdown()
-    except:
-        pass
-    sys.exit(0)
-
-# Register signal handlers
-signal.signal(signal.SIGINT, signal_handler)
-signal.signal(signal.SIGTERM, signal_handler)
+        logger.info("Scheduler shutdown")
+    except Exception as e:
+        logger.error(f"Error shutting down scheduler: {e}")
+    
+    # Hanya exit jika running secara langsung (bukan under Gunicorn)
+    if __name__ == '__main__':
+        sys.exit(0)
 
 # Flask Routes
 @app.route('/')
@@ -188,6 +206,9 @@ def dashboard():
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM sensor_data ORDER BY timestamp DESC LIMIT 10")
             data = cursor.fetchall()
+        except sqlite3.Error as e:
+            logger.error(f"Database error: {e}")
+            return render_template('error.html', error="Database error")
         finally:
             conn.close()
             
@@ -219,12 +240,51 @@ def activate_water():
             return jsonify({"error": "Duration must be positive"}), 400
             
         mqtt_client.publish(MQTT_TOPIC_CONTROL, f"ON,{duration}")
+        logger.info(f"Manual watering activated for {duration}ms")
+        
         return jsonify({
             "status": "success",
             "message": f"Watering command sent to device for {duration}ms"
         })
     except Exception as e:
         logger.error(f"Activate water error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/data/history')
+def get_history():
+    """Get historical sensor data"""
+    try:
+        limit = request.args.get('limit', 100, type=int)
+        conn = get_db_connection()
+        if not conn:
+            return jsonify({"error": "Database connection failed"}), 500
+            
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT timestamp, temperature, humidity, soil_moisture FROM sensor_data ORDER BY timestamp DESC LIMIT ?",
+                (limit,)
+            )
+            data = cursor.fetchall()
+            
+            result = []
+            for row in data:
+                result.append({
+                    'timestamp': row['timestamp'],
+                    'temperature': row['temperature'],
+                    'humidity': row['humidity'],
+                    'soil_moisture': row['soil_moisture']
+                })
+                
+            return jsonify(result)
+        except sqlite3.Error as e:
+            logger.error(f"Database error: {e}")
+            return jsonify({"error": "Database error"}), 500
+        finally:
+            conn.close()
+            
+    except Exception as e:
+        logger.error(f"History data error: {e}")
         return jsonify({"error": str(e)}), 500
 
 def create_app():
@@ -265,6 +325,10 @@ def create_app():
     
     return app
 
+# Hanya register signal handlers ketika running langsung (bukan under Gunicorn)
 if __name__ == '__main__':
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
     app = create_app()
     app.run(host='0.0.0.0', port=6000, debug=False)

@@ -3,14 +3,23 @@ import sqlite3
 import paho.mqtt.client as mqtt
 from datetime import datetime
 import threading
-from fuzzy_logic import FuzzyWateringSystem
-from flask_apscheduler import APScheduler
+import time
 import logging
 from contextlib import closing
+from flask_apscheduler import APScheduler
 from pytz import timezone
+import signal
+import sys
 
 # Setup basic logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("app.log"),
+        logging.StreamHandler()
+    ]
+)
 logger = logging.getLogger(__name__)
 
 class Config:
@@ -29,6 +38,9 @@ MQTT_KEEPALIVE = 60
 # Initialize Flask and components
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# Import fuzzy logic after app creation to avoid circular imports
+from fuzzy_logic import FuzzyWateringSystem
 fuzzy_system = FuzzyWateringSystem()
 
 # Initialize MQTT Client
@@ -39,17 +51,33 @@ mqtt_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
 scheduler = APScheduler()
 scheduler.init_app(app)
 
+def get_db_connection():
+    """Get a database connection with proper error handling."""
+    try:
+        conn = sqlite3.connect(DATABASE)
+        conn.row_factory = sqlite3.Row
+        return conn
+    except sqlite3.Error as e:
+        logger.error(f"Database connection error: {e}")
+        return None
+
 def init_db():
     """Initialize the database with required tables."""
-    with closing(sqlite3.connect(DATABASE)) as conn:
-        with conn:
-            conn.execute('''CREATE TABLE IF NOT EXISTS sensor_data
-                         (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                          timestamp TEXT,
-                          temperature REAL,
-                          humidity REAL,
-                          soil_moisture INTEGER)''')
+    try:
+        conn = get_db_connection()
+        if conn:
+            with conn:
+                conn.execute('''CREATE TABLE IF NOT EXISTS sensor_data
+                             (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                              timestamp TEXT,
+                              temperature REAL,
+                              humidity REAL,
+                              soil_moisture INTEGER)''')
             logger.info("Database initialized")
+        else:
+            logger.error("Failed to initialize database")
+    except Exception as e:
+        logger.error(f"Database initialization error: {e}")
 
 # MQTT Callbacks
 def on_connect(client, userdata, flags, rc):
@@ -62,17 +90,25 @@ def on_connect(client, userdata, flags, rc):
 def on_message(client, userdata, msg):
     try:
         if msg.topic == MQTT_TOPIC_SENSOR:
-            temp, hum, soil = msg.payload.decode().split(',')
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
-            with closing(sqlite3.connect(DATABASE)) as conn:
-                with conn:
-                    conn.execute(
-                        "INSERT INTO sensor_data (timestamp, temperature, humidity, soil_moisture) VALUES (?, ?, ?, ?)",
-                        (timestamp, float(temp), float(hum), int(soil))
-                    )
-            logger.info(f"Saved sensor data: {temp}°C, {hum}%, {soil}%")
-            
+            payload = msg.payload.decode()
+            if payload.count(',') == 2:
+                temp, hum, soil = payload.split(',')
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                conn = get_db_connection()
+                if conn:
+                    try:
+                        with conn:
+                            conn.execute(
+                                "INSERT INTO sensor_data (timestamp, temperature, humidity, soil_moisture) VALUES (?, ?, ?, ?)",
+                                (timestamp, float(temp), float(hum), int(soil))
+                            )
+                        logger.info(f"Saved sensor data: {temp}°C, {hum}%, {soil}%")
+                    finally:
+                        conn.close()
+            else:
+                logger.warning(f"Invalid MQTT message format: {payload}")
+                
     except Exception as e:
         logger.error(f"Error processing MQTT message: {e}")
 
@@ -81,22 +117,30 @@ def mqtt_thread():
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
     
-    try:
-        mqtt_client.connect(MQTT_BROKER, MQTT_PORT, MQTT_KEEPALIVE)
-        mqtt_client.loop_forever()
-    except Exception as e:
-        logger.error(f"MQTT thread error: {e}")
+    while True:
+        try:
+            logger.info("Attempting to connect to MQTT broker...")
+            mqtt_client.connect(MQTT_BROKER, MQTT_PORT, MQTT_KEEPALIVE)
+            mqtt_client.loop_forever()
+        except Exception as e:
+            logger.error(f"MQTT connection error: {e}. Retrying in 10 seconds...")
+            time.sleep(10)
 
 def proses_data():
     """Process the latest sensor data and determine watering needs."""
     try:
-        with closing(sqlite3.connect(DATABASE)) as conn:
-            with conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT temperature, humidity, soil_moisture FROM sensor_data ORDER BY timestamp DESC LIMIT 1"
-                )
-                row = cursor.fetchone()
+        conn = get_db_connection()
+        if not conn:
+            return None, None, None, {"error": "Database connection failed"}
+            
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT temperature, humidity, soil_moisture FROM sensor_data ORDER BY timestamp DESC LIMIT 1"
+            )
+            row = cursor.fetchone()
+        finally:
+            conn.close()
         
         if not row:
             logger.warning("No sensor data available")
@@ -115,15 +159,38 @@ def proses_data():
         logger.error(f"Error processing data: {e}")
         return None, None, None, {"error": str(e)}
 
+def signal_handler(sig, frame):
+    """Handle shutdown signals gracefully."""
+    logger.info("Received shutdown signal")
+    try:
+        mqtt_client.disconnect()
+    except:
+        pass
+    try:
+        scheduler.shutdown()
+    except:
+        pass
+    sys.exit(0)
+
+# Register signal handlers
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
 # Flask Routes
 @app.route('/')
 def dashboard():
     try:
-        with closing(sqlite3.connect(DATABASE)) as conn:
-            with conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT * FROM sensor_data ORDER BY timestamp DESC LIMIT 10")
-                data = cursor.fetchall()
+        conn = get_db_connection()
+        if not conn:
+            return render_template('error.html', error="Database connection failed")
+            
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM sensor_data ORDER BY timestamp DESC LIMIT 10")
+            data = cursor.fetchall()
+        finally:
+            conn.close()
+            
         return render_template('index.html', data=data)
     except Exception as e:
         logger.error(f"Dashboard error: {e}")
@@ -160,8 +227,9 @@ def activate_water():
         logger.error(f"Activate water error: {e}")
         return jsonify({"error": str(e)}), 500
 
-def run_app():
-    """Initialize and run the application."""
+def create_app():
+    """Application factory function."""
+    # Initialize components
     init_db()
     
     # Start MQTT in background
@@ -173,10 +241,10 @@ def run_app():
     if not scheduler.running:
         scheduler.start()
         
-        # Set timezone (sesuaikan dengan lokasi Anda)
+        # Set timezone
         jakarta_tz = timezone('Asia/Jakarta')
         
-        # Jadwalkan proses_data jam 7 pagi dan 5 sore
+        # Schedule proses_data at 7 AM and 5 PM
         scheduler.add_job(
             id='Morning Watering',
             func=proses_data,
@@ -195,8 +263,8 @@ def run_app():
             timezone=jakarta_tz
         )
     
-    # Start Flask
-    app.run(host='0.0.0.0', port=6000)
+    return app
 
 if __name__ == '__main__':
-    run_app()
+    app = create_app()
+    app.run(host='0.0.0.0', port=6000, debug=False)

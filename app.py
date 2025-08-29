@@ -196,7 +196,7 @@ def run_app():
         )
     
     # Start Flask
-    app.run(host='0.0.0.0', port=6000)
+    app.run(host='0.0.0.0', port=8000)
 
 if __name__ == '__main__':
     run_app()

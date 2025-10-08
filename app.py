@@ -122,42 +122,182 @@ def dashboard():
         with closing(sqlite3.connect(DATABASE)) as conn:
             with conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT * FROM sensor_data ORDER BY timestamp DESC LIMIT 10")
+                cursor.execute("SELECT * FROM sensor_data ORDER BY timestamp DESC")
                 data = cursor.fetchall()
         return render_template('index.html', data=data)
     except Exception as e:
         logger.error(f"Dashboard error: {e}")
         return render_template('error.html', error=str(e))
 
-@app.route('/api/latest')
-def get_latest():
-    temp, hum, soil, result = proses_data()
-    if None in (temp, hum, soil):
-        return jsonify({"error": "Failed to get sensor data"}), 500
-    return jsonify({
-        "sensor_data": {
-            "temperature": temp,
-            "humidity": hum,
-            "soil_moisture": soil
-        },
-        "watering_recommendation": result,
-        "pump_command": "ON" if result.get('duration_ms', 0) > 0 else "OFF"
-    })
+@app.route('/api/current')
+def get_current_data():
+    """Get the latest sensor data only."""
+    try:
+        with closing(sqlite3.connect(DATABASE)) as conn:
+            with conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT timestamp, temperature, humidity, soil_moisture FROM sensor_data ORDER BY timestamp DESC LIMIT 1"
+                )
+                row = cursor.fetchone()
+        
+        if not row:
+            return jsonify({"error": "No sensor data available"}), 404
+        
+        timestamp, temperature, humidity, soil_moisture = row
+        
+        return jsonify({
+            "status": "success",
+            "sensor_data": {
+                "timestamp": timestamp,
+                "temperature": temperature,
+                "humidity": humidity,
+                "soil_moisture": soil_moisture
+            }
+        })
+    
+    except Exception as e:
+        logger.error(f"Get current data error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/current-with-recommendation')
+def get_current_with_recommendation():
+    """Get the latest sensor data with watering recommendation."""
+    try:
+        with closing(sqlite3.connect(DATABASE)) as conn:
+            with conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT temperature, humidity, soil_moisture FROM sensor_data ORDER BY timestamp DESC LIMIT 1"
+                )
+                row = cursor.fetchone()
+        
+        if not row:
+            return jsonify({"error": "No sensor data available"}), 404
+        
+        temp, hum, soil = row
+        result = fuzzy_system.calculate_watering(soil, hum, temp)
+        
+        response_data = {
+            "status": "success",
+            "sensor_data": {
+                "temperature": temp,
+                "humidity": hum,
+                "soil_moisture": soil
+            },
+            "watering_recommendation": result,
+            "pump_command": "ON" if result.get('duration_ms', 0) > 0 else "OFF"
+        }
+        
+        # If watering is needed, send command to MQTT
+        if result.get('duration_ms', 0) > 0:
+            mqtt_client.publish(MQTT_TOPIC_CONTROL, f"ON,{result['duration_ms']}")
+            response_data["message"] = f"Pump activated for {result['duration_ms']}ms"
+            logger.info(f"Auto watering activated for {result['duration_ms']}ms")
+        
+        return jsonify(response_data)
+    
+    except Exception as e:
+        logger.error(f"Get current with recommendation error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/all')
+def get_all_data():
+    """Get all sensor data."""
+    try:
+        with closing(sqlite3.connect(DATABASE)) as conn:
+            with conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM sensor_data ORDER BY timestamp DESC")
+                data = cursor.fetchall()
+        
+        # Convert to list of dictionaries
+        result = []
+        for row in data:
+            result.append({
+                "id": row[0],
+                "timestamp": row[1],
+                "temperature": row[2],
+                "humidity": row[3],
+                "soil_moisture": row[4]
+            })
+        
+        return jsonify({
+            "status": "success",
+            "total_records": len(result),
+            "data": result
+        })
+    except Exception as e:
+        logger.error(f"Get all data error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/water/activate', methods=['POST'])
 def activate_water():
+    """Activate watering manually."""
     try:
         duration = int(request.json.get('duration', 30000))
         if duration <= 0:
             return jsonify({"error": "Duration must be positive"}), 400
             
         mqtt_client.publish(MQTT_TOPIC_CONTROL, f"ON,{duration}")
+        logger.info(f"Manual watering activated for {duration}ms")
+        
         return jsonify({
             "status": "success",
             "message": f"Watering command sent to device for {duration}ms"
         })
     except Exception as e:
         logger.error(f"Activate water error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/stats')
+def get_stats():
+    """Get statistics of sensor data."""
+    try:
+        with closing(sqlite3.connect(DATABASE)) as conn:
+            with conn:
+                cursor = conn.cursor()
+                
+                # Get latest data
+                cursor.execute("SELECT temperature, humidity, soil_moisture FROM sensor_data ORDER BY timestamp DESC LIMIT 1")
+                latest = cursor.fetchone()
+                
+                # Get averages
+                cursor.execute("SELECT AVG(temperature), AVG(humidity), AVG(soil_moisture) FROM sensor_data")
+                averages = cursor.fetchone()
+                
+                # Get counts
+                cursor.execute("SELECT COUNT(*) FROM sensor_data")
+                total_count = cursor.fetchone()[0]
+                
+                # Get today's count
+                today = datetime.now().strftime("%Y-%m-%d")
+                cursor.execute("SELECT COUNT(*) FROM sensor_data WHERE timestamp LIKE ?", (f"{today}%",))
+                today_count = cursor.fetchone()[0]
+        
+        if not latest:
+            return jsonify({"error": "No data available"}), 404
+            
+        return jsonify({
+            "status": "success",
+            "latest": {
+                "temperature": latest[0],
+                "humidity": latest[1],
+                "soil_moisture": latest[2]
+            },
+            "averages": {
+                "temperature": round(averages[0], 2) if averages[0] else 0,
+                "humidity": round(averages[1], 2) if averages[1] else 0,
+                "soil_moisture": round(averages[2], 2) if averages[2] else 0
+            },
+            "counts": {
+                "total": total_count,
+                "today": today_count
+            }
+        })
+    
+    except Exception as e:
+        logger.error(f"Get stats error: {e}")
         return jsonify({"error": str(e)}), 500
 
 def run_app():
@@ -196,7 +336,7 @@ def run_app():
         )
     
     # Start Flask
-    app.run(host='0.0.0.0', port=8000)
+    app.run(host='0.0.0.0', port=8000, debug=False)
 
 if __name__ == '__main__':
     run_app()

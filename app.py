@@ -156,8 +156,17 @@ def dashboard():
     
 @app.route('/')
 def index():
-    sensor_data = get_latest_sensor_data()
-    return render_template('index.html', sensor_data=sensor_data)
+    try:
+        with closing(sqlite3.connect(DATABASE)) as conn:
+            with conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM sensor_data ORDER BY timestamp DESC")
+                data = cursor.fetchall()
+        sensor_data = get_latest_sensor_data()
+        return render_template('index.html', sensor_data=sensor_data, data=data)
+    except Exception as e:
+        logger.error(f"Index error: {e}")
+        return render_template('error.html', error=str(e))
 
 @app.route('/api/current')
 def get_current_data():

@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -10,40 +11,15 @@
 
     <title>Dashboard - IoT Citrus</title>
 
-    <!-- Custom fonts for this template -->
-    <link href="/static/vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
+    <!-- Custom fonts for this template-->
+    <link href="static/vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
     <link
         href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"
         rel="stylesheet">
 
-    <!-- Custom styles for this template -->
-    <link href="/static/css/sb-admin-2.min.css" rel="stylesheet">
+    <!-- Custom styles for this template-->
+    <link href="static/css/sb-admin-2.min.css" rel="stylesheet">
 
-    <!-- Custom styles for this page -->
-    <link href="/static/vendor/datatables/dataTables.bootstrap4.min.css" rel="stylesheet">
-
-    <style>
-        .sensor-card {
-            border-left: 4px solid;
-            transition: transform 0.2s;
-        }
-        .sensor-card:hover {
-            transform: translateY(-5px);
-        }
-        .temperature-card { border-left-color: #e74a3b; }
-        .humidity-card { border-left-color: #36b9cc; }
-        .soil-moisture-card { border-left-color: #1cc88a; }
-        .watering-card { border-left-color: #f6c23e; }
-        .stats-card { border-left-color: #6f42c1; }
-        
-        .alert {
-            position: fixed;
-            top: 100px;
-            right: 20px;
-            z-index: 9999;
-            min-width: 300px;
-        }
-    </style>
 </head>
 
 <body id="page-top">
@@ -55,7 +31,7 @@
         <ul class="navbar-nav bg-gradient-dark sidebar sidebar-dark accordion" id="accordionSidebar">
 
             <!-- Sidebar - Brand -->
-            <a class="sidebar-brand d-flex align-items-center justify-content-center" href="/">
+            <a class="sidebar-brand d-flex align-items-center justify-content-center" href="index.html">
                 <div class="sidebar-brand-icon rotate-n-15">
                     <i class="fas fa-code"></i>
                 </div>
@@ -67,7 +43,7 @@
 
             <!-- Nav Item - Dashboard -->
             <li class="nav-item active">
-                <a class="nav-link" href="/">
+                <a class="nav-link" href="index.html">
                     <i class="fas fa-fw fa-tachometer-alt"></i>
                     <span>Dashboard</span></a>
             </li>
@@ -90,8 +66,8 @@
                 <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
                     <div class="bg-white py-2 collapse-inner rounded">
                         <h6 class="collapse-header">Custom Components:</h6>
-                        <a class="collapse-item" href="#" onclick="activateWatering()">Manual Control</a>
-                        <a class="collapse-item" href="#">Schedule</a>
+                        <a class="collapse-item" href="#">Buttons</a>
+                        <a class="collapse-item" href="#">Cards</a>
                     </div>
                 </div>
             </li>
@@ -107,8 +83,10 @@
                     data-parent="#accordionSidebar">
                     <div class="bg-white py-2 collapse-inner rounded">
                         <h6 class="collapse-header">Custom Utilities:</h6>
-                        <a class="collapse-item" href="#">Settings</a>
-                        <a class="collapse-item" href="#">History</a>
+                        <a class="collapse-item" href="#">Colors</a>
+                        <a class="collapse-item" href="#">Borders</a>
+                        <a class="collapse-item" href="#">Animations</a>
+                        <a class="collapse-item" href="#">Other</a>
                     </div>
                 </div>
             </li>
@@ -118,7 +96,7 @@
 
             <!-- Nav Item - Tables -->
             <li class="nav-item">
-                <a class="nav-link" href="/">
+                <a class="nav-link" href="table">
                     <i class="fas fa-fw fa-table"></i>
                     <span>Datasets</span></a>
             </li>
@@ -144,14 +122,36 @@
                 <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow">
 
                     <!-- Sidebar Toggle (Topbar) -->
-                    <form class="form-inline">
-                        <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3">
-                            <i class="fa fa-bars"></i>
-                        </button>
-                    </form>
+                    <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3">
+                        <i class="fa fa-bars"></i>
+                    </button>
 
                     <!-- Topbar Navbar -->
                     <ul class="navbar-nav ml-auto">
+
+                        <!-- Nav Item - Search Dropdown (Visible Only XS) -->
+                        <li class="nav-item dropdown no-arrow d-sm-none">
+                            <a class="nav-link dropdown-toggle" href="#" id="searchDropdown" role="button"
+                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <i class="fas fa-search fa-fw"></i>
+                            </a>
+                            <!-- Dropdown - Messages -->
+                            <div class="dropdown-menu dropdown-menu-right p-3 shadow animated--grow-in"
+                                aria-labelledby="searchDropdown">
+                                <form class="form-inline mr-auto w-100 navbar-search">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control bg-light border-0 small"
+                                            placeholder="Search for..." aria-label="Search"
+                                            aria-describedby="basic-addon2">
+                                        <div class="input-group-append">
+                                            <button class="btn btn-primary" type="button">
+                                                <i class="fas fa-search fa-sm"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </li>
 
                         <div class="topbar-divider d-none d-sm-block"></div>
 
@@ -160,7 +160,7 @@
                             <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
                                 data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 <span class="mr-2 d-none d-lg-inline text-gray-600 small">Ircham Ali</span>
-                                <img class="img-profile rounded-circle" src="/static/img/undraw_profile.svg">
+                                <img class="img-profile rounded-circle" src="static/img/undraw_profile.svg">
                             </a>
                             <!-- Dropdown - User Information -->
                             <div class="dropdown-menu dropdown-menu-right shadow animated--grow-in"
@@ -194,53 +194,142 @@
                 <div class="container-fluid">
 
                     <!-- Page Heading -->
-                    <h1 class="h3 mb-4 text-gray-800">Dashboard</h1>
+                    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+                        <h1 class="h3 mb-0 text-gray-800">Dashboard</h1>
+                        <button id="refreshBtn" class="btn btn-primary btn-sm">
+                            <i class="fas fa-sync-alt fa-sm"></i> Refresh Data
+                        </button>
+                    </div>
 
-                    <!-- DataTales Example -->
-                    <div class="card shadow mb-4">
-                        <div class="card-header py-3 d-flex justify-content-between align-items-center">
-                            <h6 class="m-0 font-weight-bold text-primary">All Sensor Data (Total: {{ data|length }} records)</h6>
-                            <div>
-                                <button class="btn btn-success btn-sm" onclick="activateWatering()">
-                                    <i class="fas fa-faucet"></i> Water Now
-                                </button>
-                                <button class="btn btn-info btn-sm" onclick="exportData()">
-                                    <i class="fas fa-download"></i> Export
-                                </button>
+                    <!-- Content Row -->
+                    <div class="row">
+
+                        <!-- Temperature Card -->
+                        <div class="col-xl-3 col-md-6 mb-4">
+                            <div class="card border-left-primary shadow h-100 py-2">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                                Temperature (°C)</div>
+                                            <div id="temperature-value" class="h5 mb-0 font-weight-bold text-gray-800">--</div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-thermometer-half fa-2x text-gray-300"></i>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 text-xs text-muted">
+                                        Last update: <span id="temperature-time">--</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
-                                    <thead>
-                                        <tr>
-                                            <th>ID</th>
-                                            <th>Timestamp</th>
-                                            <th>Temperature (°C)</th>
-                                            <th>Humidity (%)</th>
-                                            <th>Soil Moisture (%)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% if data %}
-                                            {% for row in data %}
-                                            <tr>
-                                                <td>{{ row[0] }}</td>
-                                                <td>{{ row[1] }}</td>
-                                                <td>{{ row[2] }}</td>
-                                                <td>{{ row[3] }}</td>
-                                                <td>{{ row[4] }}</td>
-                                            </tr>
-                                            {% endfor %}
-                                        {% else %}
-                                            <tr>
-                                                <td colspan="5" class="text-center">No data available</td>
-                                            </tr>
-                                        {% endif %}
-                                    </tbody>
-                                </table>
+
+                        <!-- Humidity Card -->
+                        <div class="col-xl-3 col-md-6 mb-4">
+                            <div class="card border-left-success shadow h-100 py-2">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                                Humidity (%)</div>
+                                            <div id="humidity-value" class="h5 mb-0 font-weight-bold text-gray-800">--</div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-tint fa-2x text-gray-300"></i>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 text-xs text-muted">
+                                        Last update: <span id="humidity-time">--</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+
+                        <!-- Soil Moisture Card -->
+                        <div class="col-xl-3 col-md-6 mb-4">
+                            <div class="card border-left-info shadow h-100 py-2">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Soil Moisture (%)
+                                            </div>
+                                            <div class="row no-gutters align-items-center">
+                                                <div class="col-auto">
+                                                    <div id="soilmoisture-value" class="h5 mb-0 mr-3 font-weight-bold text-gray-800">--</div>
+                                                </div>
+                                                <div class="col">
+                                                    <div class="progress progress-sm mr-2">
+                                                        <div id="soilmoisture-progress" class="progress-bar bg-info" role="progressbar"
+                                                            style="width: 0%" aria-valuenow="0" aria-valuemin="0"
+                                                            aria-valuemax="100"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-seedling fa-2x text-gray-300"></i>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 text-xs text-muted">
+                                        Last update: <span id="soilmoisture-time">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- pH Card (Static) -->
+                        <div class="col-xl-3 col-md-6 mb-4">
+                            <div class="card border-left-warning shadow h-100 py-2">
+                                <div class="card-body">
+                                    <div class="row no-gutters align-items-center">
+                                        <div class="col mr-2">
+                                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                                pH Level</div>
+                                            <div class="h5 mb-0 font-weight-bold text-gray-800">6.2</div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <i class="fas fa-flask fa-2x text-gray-300"></i>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 text-xs text-muted">
+                                        Optimal range: 5.5 - 6.5
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Content Row -->
+                    <div class="row">
+
+                        <!-- Area Chart -->
+                        <div class="col-xl-12 col-lg-10">
+                            <div class="card shadow mb-4">
+                                <!-- Card Header - Dropdown -->
+                                <div
+                                    class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                                    <h6 class="m-0 font-weight-bold text-primary">Monitoring Trend</h6>
+                                    <div class="dropdown no-arrow">
+                                        <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink"
+                                            data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                            <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                                        </a>
+                                        <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in"
+                                            aria-labelledby="dropdownMenuLink">
+                                            <!-- Dropdown content can be added here -->
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Card Body -->
+                                <div class="card-body">
+                                    <div class="chart-area">
+                                        <canvas id="myAreaChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
 
                 </div>
@@ -291,145 +380,69 @@
     </div>
 
     <!-- Bootstrap core JavaScript-->
-    <script src="/static/vendor/jquery/jquery.min.js"></script>
-    <script src="/static/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="static/vendor/jquery/jquery.min.js"></script>
+    <script src="static/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 
     <!-- Core plugin JavaScript-->
-    <script src="/static/vendor/jquery-easing/jquery.easing.min.js"></script>
+    <script src="static/vendor/jquery-easing/jquery.easing.min.js"></script>
 
     <!-- Custom scripts for all pages-->
-    <script src="/static/js/sb-admin-2.min.js"></script>
+    <script src="static/js/sb-admin-2.min.js"></script>
 
     <!-- Page level plugins -->
-    <script src="/static/vendor/datatables/jquery.dataTables.min.js"></script>
-    <script src="/static/vendor/datatables/dataTables.bootstrap4.min.js"></script>
+    <script src="static/vendor/chart.js/Chart.min.js"></script>
 
     <!-- Page level custom scripts -->
-    <script src="/static/js/demo/datatables-demo.js"></script>
+    <script src="static/js/demo/chart-area-demo.js"></script>
+    <script src="static/js/demo/chart-pie-demo.js"></script>
 
-    <!-- Export functionality -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
+    <!-- Custom JavaScript for dynamic data -->
     <script>
-        // Initialize DataTables
-        $(document).ready(function() {
-            $('#dataTable').DataTable({
-                "order": [[0, "desc"]],
-                "pageLength": 25,
-                "lengthMenu": [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
-                "language": {
-                    "search": "Cari:",
-                    "lengthMenu": "Tampilkan _MENU_ data",
-                    "info": "Menampilkan _START_ sampai _END_ dari _TOTAL_ data",
-                    "infoEmpty": "Menampilkan 0 sampai 0 dari 0 data",
-                    "infoFiltered": "(disaring dari _MAX_ total data)",
-                    "paginate": {
-                        "first": "Pertama",
-                        "last": "Terakhir",
-                        "next": "Berikutnya",
-                        "previous": "Sebelumnya"
+        function updateSensorData() {
+            fetch('/api/current')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success' && data.sensor_data) {
+                        const sensorData = data.sensor_data;
+                        
+                        // Update temperature
+                        document.getElementById('temperature-value').textContent = sensorData.temperature || '--';
+                        document.getElementById('temperature-time').textContent = sensorData.timestamp ? new Date(sensorData.timestamp).toLocaleTimeString() : '--';
+                        
+                        // Update humidity
+                        document.getElementById('humidity-value').textContent = sensorData.humidity || '--';
+                        document.getElementById('humidity-time').textContent = sensorData.timestamp ? new Date(sensorData.timestamp).toLocaleTimeString() : '--';
+                        
+                        // Update soil moisture
+                        const soilMoisture = sensorData.soil_moisture;
+                        document.getElementById('soilmoisture-value').textContent = soilMoisture || '--';
+                        document.getElementById('soilmoisture-time').textContent = sensorData.timestamp ? new Date(sensorData.timestamp).toLocaleTimeString() : '--';
+                        
+                        // Update progress bar
+                        if (soilMoisture) {
+                            const progressBar = document.getElementById('soilmoisture-progress');
+                            progressBar.style.width = soilMoisture + '%';
+                            progressBar.setAttribute('aria-valuenow', soilMoisture);
+                        }
+                    } else {
+                        console.error('No sensor data available');
                     }
-                }
-            });
-            });
-
-
-        function activateWatering() {
-            const duration = 30000; // 30 seconds default
-            
-            fetch('/api/water/activate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ duration: duration })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    showAlert('Watering activated successfully!', 'success');
-                    // Update status immediately
-                    document.getElementById('watering-status').innerHTML = '<span class="text-success">MANUAL ACTIVATION</span>';
-                    document.getElementById('watering-details').textContent = `Duration: ${duration}ms`;
-                } else {
-                    showAlert('Error: ' + data.error, 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showAlert('Error activating watering', 'error');
-            });
+                })
+                .catch(error => {
+                    console.error('Error fetching sensor data:', error);
+                });
         }
 
-        function exportData() {
-            // Get DataTable instance
-            const table = $('#dataTable').DataTable();
+        // Update data on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSensorData();
             
-            // Get all data (without pagination)
-            const data = table.rows().data().toArray();
+            // Set up auto-refresh every 30 seconds
+            setInterval(updateSensorData, 30000);
             
-            // Prepare data for export
-            const exportData = [
-                ['ID', 'Timestamp', 'Temperature (°C)', 'Humidity (%)', 'Soil Moisture (%)']
-            ];
-            
-            data.forEach(row => {
-                exportData.push([
-                    row[0],
-                    row[1],
-                    row[2],
-                    row[3],
-                    row[4]
-                ]);
-            });
-            
-            // Create workbook
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.aoa_to_sheet(exportData);
-            
-            // Add worksheet to workbook
-            XLSX.utils.book_append_sheet(wb, ws, 'Sensor Data');
-            
-            // Generate filename with current date
-            const date = new Date().toISOString().split('T')[0];
-            const filename = `sensor_data_${date}.xlsx`;
-            
-            // Download file
-            XLSX.writeFile(wb, filename);
-            
-            showAlert('Data exported successfully!', 'success');
-        }
-
-        function showAlert(message, type) {
-            // Remove existing alerts
-            const existingAlert = document.querySelector('.alert');
-            if (existingAlert) {
-                existingAlert.remove();
-            }
-
-            // Create new alert
-            const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
-            const alertHtml = `
-                <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-                    ${message}
-                    <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-            `;
-            
-            // Insert alert at the top of the container
-            const container = document.querySelector('.container-fluid');
-            container.insertAdjacentHTML('afterbegin', alertHtml);
-            
-            // Auto remove after 5 seconds
-            setTimeout(() => {
-                const alert = document.querySelector('.alert');
-                if (alert) {
-                    alert.remove();
-                }
-            }, 5000);
-        }
+            // Add click event to refresh button
+            document.getElementById('refreshBtn').addEventListener('click', updateSensorData);
+        });
     </script>
 
 </body>

@@ -114,9 +114,34 @@ def proses_data():
     except Exception as e:
         logger.error(f"Error processing data: {e}")
         return None, None, None, {"error": str(e)}
+    
+def get_latest_sensor_data():
+    """Fetch the latest sensor data from the database."""
+    try:
+        with closing(sqlite3.connect(DATABASE)) as conn:
+            with conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT timestamp, temperature, humidity, soil_moisture FROM sensor_data ORDER BY timestamp DESC LIMIT 1"
+                )
+                row = cursor.fetchone()
+        
+        if not row:
+            return None
+        
+        return {
+            "timestamp": row[0],
+            "temperature": row[1],
+            "humidity": row[2],
+            "soil_moisture": row[3]
+        }
+    
+    except Exception as e:
+        logger.error(f"Error fetching latest sensor data: {e}")
+        return None
 
 # Flask Routes
-@app.route('/')
+@app.route('/table')
 def dashboard():
     try:
         with closing(sqlite3.connect(DATABASE)) as conn:
@@ -124,10 +149,15 @@ def dashboard():
                 cursor = conn.cursor()
                 cursor.execute("SELECT * FROM sensor_data ORDER BY timestamp DESC")
                 data = cursor.fetchall()
-        return render_template('index.html', data=data)
+        return render_template('table.html', data=data)
     except Exception as e:
         logger.error(f"Dashboard error: {e}")
         return render_template('error.html', error=str(e))
+    
+@app.route('/')
+def index():
+    sensor_data = get_latest_sensor_data()
+    return render_template('index.html', sensor_data=sensor_data)
 
 @app.route('/api/current')
 def get_current_data():
